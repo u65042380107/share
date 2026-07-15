@@ -334,23 +334,23 @@ sequenceDiagram
     actor User
     participant App as Mobile App
     participant API as Core API (PostgreSQL)
-    participant GW as Real-time Gateway
+    participant Redis as Redis Cache
+    participant GW as Telegraf (Data Collector)
     participant DB as InfluxDB (Multi-Bucket)
     
     User->>App: จ่ายเงินอัปเกรดเครื่อง A เป็น "Pro Tier"
     App->>API: อัปเดตสถานะ (Subscription = Pro)
     API->>API: บันทึก PostgreSQL (expires_at + 30 days)
-    API-->>GW: Publish Event (Device A = Pro)
+    API->>Redis: อัปเดตแพ็คเกจใน Cache (Device A = Pro)
     
-    GW->>GW: อัปเดต In-memory Cache (Device A = Pro)
-    
-    loop ทุกๆ วินาที
+    loop ทุกๆ วินาที (เมื่อมีข้อมูลเข้า)
+        GW->>Redis: ตรวจสอบแพ็คเกจ (ผ่าน Processor)
         GW->>DB: เขียนข้อมูล Device A ลง Bucket `power_data_pro`
         Note right of DB: ข้อมูลเก่าเกิน 90 วัน<br/>จะถูก DB ลบเอง
     end
 ```
-> **ข้อดี:** API แจ้ง Gateway ให้สลับถัง (Bucket) ได้แบบ Real-time ข้อมูลจะไหลเข้าถังใหม่ทันทีที่ลูกค้าจ่ายเงิน โดยที่เซิร์ฟเวอร์หลักแทบไม่ต้องประมวลผลเพิ่มเลย
-> **ข้อเสีย:** ระบบต้องรักษา State ให้ซิงค์กันระหว่าง PostgreSQL กับ Gateway Cache ตลอดเวลา หาก Gateway Restart ต้องดึง State จาก PostgreSQL มาใหม่
+> **ข้อดี:** API อัปเดตข้อมูลลง Redis แล้ว Telegraf จะสลับถัง (Bucket) ได้แบบ Real-time ข้อมูลจะไหลเข้าถังใหม่ทันทีที่ลูกค้าจ่ายเงิน โดยที่เซิร์ฟเวอร์หลักแทบไม่ต้องประมวลผลเพิ่มเลย
+> **ข้อเสีย:** ต้องมีการอ่าน Redis ทุกครั้งที่ข้อมูลเข้า (แต่ Redis เร็วมากระดับไมโครวินาทีจึงไม่เป็นปัญหา)
 
 เราเลือกใช้การผสมผสานระหว่าง **คิดตามจำนวน Device** กับ **คิดตามระยะเวลาดูข้อมูลย้อนหลังความละเอียด 1 วินาที**
 
@@ -544,7 +544,7 @@ from(bucket: "power_data_free") // ดึงจากถังดิบสาย
 
 ```mermaid
 flowchart TD
-    subgraph Gateway ["📡 Telegraf (Data Collector)"]
+    subgraph Telegraf ["📡 Telegraf (Data Collector)"]
         Check["เช็คสถานะ Tier จาก Redis (ผ่าน Processor Plugin)"]
     end
     
@@ -554,7 +554,7 @@ flowchart TD
         BucketE[("power_data_enterprise<br/>Retention: 365d")]
     end
     
-    Gateway --> Check
+    Telegraf --> Check
     Check -- "Tier = Free" --> BucketF
     Check -- "Tier = Pro" --> BucketP
     Check -- "Tier = Enterprise" --> BucketE
@@ -774,7 +774,7 @@ flowchart LR
 
 #### สำหรับช่วง Startup (ปัจจุบัน, 7-50 devices)
 **→ แนะนำแพ็กเกจ: Hostinger KVM 2 (~419 ฿/เดือน)**
-* 2 vCPU: เพียงพอสำหรับการทำงานพื้นฐานของ InfluxDB, Node.js Gateway และ PostgreSQL
+* 2 vCPU: เพียงพอสำหรับการทำงานพื้นฐานของ InfluxDB, Telegraf, MQTT และ PostgreSQL
 * 8 GB RAM: สำคัญมากสำหรับ InfluxDB TSM Engine ในการทำแคช Index ของอุปกรณ์ 50 เครื่อง
 * 100 GB NVMe: รับข้อมูลดิบ 50 เครื่อง (เดือนละ ~10 GB) ได้เหลือเฟือ
 
