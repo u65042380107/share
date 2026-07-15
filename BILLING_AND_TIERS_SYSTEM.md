@@ -72,18 +72,21 @@ flowchart TD
         HW2["PowerView Device N"]
     end
 
-    subgraph Ingestion ["📡 Data Ingestion"]
-        MQTT["MQTT Broker<br/>Mosquitto"]
-        GW["Telegraf<br/>Data Collector"]
-    end
+    subgraph Backend ["⚙️ Backend Layer (Server-side)"]
+        subgraph Ingestion ["📡 Data Ingestion"]
+            MQTT["MQTT Broker<br/>Mosquitto"]
+            GW["Telegraf<br/>Data Collector"]
+        end
 
-    subgraph Storage ["💾 Storage Layer"]
-        Influx["InfluxDB<br/>Time-Series Data"]
-        PG["PostgreSQL<br/>Users + Billing"]
-    end
+        subgraph Storage ["💾 Storage Layer"]
+            Influx["InfluxDB<br/>Time-Series Data"]
+            PG["PostgreSQL<br/>Users + Billing"]
+        end
 
-    subgraph App ["📱 Application Layer"]
         API["Core API<br/>Python FastAPI<br/>(รวม On-demand Billing)"]
+    end
+
+    subgraph Client ["📱 Client Layer"]
         Mobile["Mobile App"]
     end
 
