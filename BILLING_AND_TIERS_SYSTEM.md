@@ -74,7 +74,7 @@ flowchart TD
 
     subgraph Ingestion ["📡 Data Ingestion"]
         MQTT["MQTT Broker<br/>Mosquitto"]
-        GW["Real-time Gateway<br/>Node.js"]
+        GW["Telegraf<br/>Data Collector"]
     end
 
     subgraph Storage ["💾 Storage Layer"]
@@ -83,20 +83,17 @@ flowchart TD
     end
 
     subgraph App ["📱 Application Layer"]
-        API["Core API<br/>Python FastAPI"]
-        Billing["Billing Worker<br/>Python"]
+        API["Core API<br/>Python FastAPI<br/>(รวม On-demand Billing)"]
         Mobile["Mobile App"]
     end
 
     HW1 & HW2 -->|MQTT Publish| MQTT
     MQTT -->|Subscribe| GW
     GW -->|Write 33-35 fields/sec| Influx
-    Billing -->|Query energy data| Influx
-    Billing -->|Publish billing| MQTT
-    API -->|Query IoT| Influx
+    API -->|Query IoT & Calculate Bill| Influx
     API -->|Query Users/Billing| PG
     Mobile -->|REST API| API
-    Mobile -->|WebSocket Real-time| GW
+    Mobile -->|WebSocket Real-time| MQTT
 ```
 
 ### 1.2 ความสัมพันธ์ Device ↔ User (Many-to-Many)
@@ -144,7 +141,7 @@ flowchart LR
     
     subgraph Ingestion ["☁️ Ingestion Layer"]
         MQTT["MQTT Broker<br/>(Mosquitto)"]
-        GW["Real-time Gateway<br/>(Node.js)"]
+        GW["Telegraf<br/>(Data Collector)"]
     end
     
     subgraph Storage ["💾 Storage Layer"]
