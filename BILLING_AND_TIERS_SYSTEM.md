@@ -45,7 +45,7 @@
 * **มันดียังไง:** ลูกค้ายังสามารถดูกราฟค่าไฟย้อนหลังเป็นปีๆ ได้โดยที่ระบบเราไม่ต้องแบกรับภาระ Storage มหาศาล และไม่ต้องเขียนสคริปต์มาไล่ลบข้อมูลเก่าเองให้เปลืองทรัพยากร
 * **ทำงานยังไง:** 
    - **Downsampling:** ใช้ Flux Tasks เฉลี่ยค่าข้อมูลจาก 1 วินาที → 1 นาที/1 ชม. ลดขนาดพื้นที่ลงได้ 60-3,600 เท่า
-   - **Routing:** แยกฐานข้อมูลย่อย (Bucket) ตามแพ็คเกจเลย (Free=7วัน, Pro=90วัน) ระบบหน้าด่าน (Gateway) จะเช็คแพ็คเกจแล้วส่งข้อมูลลง Bucket ให้ถูกต้อง เมื่อถึงเวลา InfluxDB จะลบข้อมูลหมดอายุของแต่ละ Bucket ทิ้งไปเอง
+   - **Routing:** แยกฐานข้อมูลย่อย (Bucket) ตามแพ็คเกจเลย (Free=7วัน, Pro=90วัน) ระบบรับข้อมูล (Telegraf) จะทำงานร่วมกับ Redis เพื่อเช็คแพ็คเกจแล้วส่งข้อมูลลง Bucket ให้ถูกต้อง เมื่อถึงเวลา InfluxDB จะลบข้อมูลหมดอายุของแต่ละ Bucket ทิ้งไปเอง
 
 ### 4. สถาปัตยกรรมแบบ Self-hosted ด้วย VPS + InfluxDB + PostgreSQL
 * **ทำไมถึงทำแบบนี้:** แพลตฟอร์ม Cloud สำเร็จรูปมีราคาแพงมากๆ หากมีการรับข้อมูลระดับเสี้ยววินาทีแบบเรา ยิ่งเครื่องเยอะยิ่งแพงกว่าเช่าเซิร์ฟเวอร์เอง 100 - 1,000 เท่า
@@ -152,27 +152,27 @@ flowchart LR
         Influx["InfluxDB TSM Engine<br/>(Write-Ahead Log)"]
     end
 
-    HW -- "Publish JSON (33 fields)<br/>Topic: data/{device_id}" --> MQTT
+    HW -- "Publish JSON (33 fields)<br/>Topic: powerview/{device_id}" --> MQTT
     MQTT -- "Subscribe & Parse" --> GW
-    GW -- "Add Tag: device_id<br/>Add Timestamp" --> Point
+    GW -- "Parse JSON<br/>Tag: _/device_id" --> Point
     Point -- "Batch Write (Line Protocol)" --> Influx
 ```
-> **ข้อดี:** การแยก Gateway ออกจาก MQTT ทำให้รับโหลดได้มหาศาล และจัดรูปแบบข้อมูล (Parse) ให้เป็น Line Protocol ที่ InfluxDB ชอบก่อนเขียนลงไป
-> **ข้อเสีย:** เพิ่ม Latency เล็กน้อย (ระดับมิลลิวินาที) และต้องดูแล Node.js Gateway เพิ่มอีก 1 Service
+> **ข้อดี:** การใช้ Telegraf แทนการเขียนโปรแกรมรับข้อมูลเอง ทำให้รองรับโหลดระดับหลายแสนเครื่องได้โดยไม่พัง (Enterprise-grade) และจัดรูปแบบข้อมูล (Parse JSON) ให้เป็น Line Protocol ที่ InfluxDB ชอบก่อนเขียนลงไปได้อย่างมีประสิทธิภาพ
+> **ข้อเสีย:** ต้องศึกษาและปรับตั้งค่าไฟล์ Config (telegraf.conf) ให้ถูกต้องแทนการเขียนโค้ด
 
-จากโค้ด Gateway (`realtime-gateway/index.js`) ระบบเขียนข้อมูลลง InfluxDB ด้วยรูปแบบนี้:
+จากไฟล์คอนฟิก (`backend/telegraf/telegraf.conf`) ระบบเขียนข้อมูลลง InfluxDB ด้วยรูปแบบนี้:
 
-```javascript
-// จากไฟล์ index.js บรรทัด 46-54
-const point = new Point('electricity_usage')
-    .tag('device_id', deviceId);  // Tag = 1 ตัว
+```toml
+# จากไฟล์ telegraf.conf
+[[inputs.mqtt_consumer]]
+  servers = ["tcp://mosquitto:1884"]
+  topics = ["powerview/+"]
+  data_format = "json"
+  name_override = "electricity_usage"
 
-// วนลูปเอาค่าตัวเลขทั้งหมดใส่เป็น Field
-Object.keys(payload).forEach(key => {
-    if (key !== 'device_id' && key !== 'timestamp' && typeof payload[key] === 'number') {
-        point.floatField(key, payload[key]);  // float64 = 8 bytes ต่อ field
-    }
-});
+  [[inputs.mqtt_consumer.topic_parsing]]
+    topic = "powerview/+"
+    tags = "_/device_id"
 ```
 
 ### 2.2 ตัวอย่างข้อมูลจริง (33 Fields)
