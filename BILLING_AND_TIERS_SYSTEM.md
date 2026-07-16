@@ -109,18 +109,21 @@ erDiagram
     DEVICES ||--o{ USER_DEVICES : "owned by"
     
     USERS {
-        uuid id PK
-        string email UK
-        string display_name
-        string role
+        uuid id PK "Primary Key"
+        string email UK "Unique Index"
+        string display_name "Display Name"
+        string password_hash "Password Hash"
+        string auth_provider "Auth Provider (เช่น local, google)"
+        string google_id UK "Google ID"
+        string role "Role (เช่น admin, user)"
     }
     DEVICES {
-        string id PK "เช่น RD, Schneider"
-        string secret_key
+        string id PK "Device ID (เช่น RD, Schneider)"
+        string secret_key "Secret Key"
     }
     USER_DEVICES {
-        uuid user_id FK
-        string device_id FK
+        uuid user_id FK "อ้างอิง USERS.id"
+        string device_id FK "อ้างอิง DEVICES.id"
     }
 ```
 
@@ -699,11 +702,13 @@ flowchart TD
 |:---|:---|:---|:---|:---|:---|:---|
 | **Hostinger** | KVM 2 | 2 / 8 GB | 100 GB NVMe | **~419 ฿** ($12) | มี Live Chat คุยง่าย, UI ใช้งานง่าย, NVMe เร็วมาก | ราคาหลังหมดโปรจะแพงขึ้น (ต้องดู Renewal price) |
 | **Contabo** | Cloud VPS 20 | 6 / 12 GB | 200 GB SSD (หรือ 100 GB NVMe) | **~250 - 315 ฿** ($7.2 - $9) | ราคาถูกเมื่อเทียบกับสเปคที่ได้, ให้ RAM/Storage เยอะ | Overselling บ่อย (เครื่องอืดบางช่วง), Support ตอบช้า |
+| **Z.com (ไทย)** | Cloud 8GB | 4 / 8 GB | 100 GB SSD | **~930 ฿** | Server ตั้งในไทย (Ping ต่ำมาก), Support คนไทย, ออกใบกำกับภาษีง่าย | ราคาสูงกว่าเมืองนอกพอสมควร, Disk IOps อาจโดนจำกัด |
+| **Bangmod Cloud (ไทย)** | - | 4 / 4 GB | 50 GB NVMe | **~719 ฿** | เน็ตเวิร์คไทยแรงและเสถียรมาก, NVMe ประสิทธิภาพสูง | ราคาอยู่ในกลุ่ม Premium, ให้พื้นที่ความจุน้อยกว่าเจ้าอื่นเล็กน้อย |
 | **DigitalOcean** | Basic Premium | 2 / 8 GB | 160 GB NVMe | **~1,680 ฿** ($48) | ระบบนิ่งมาก, Scale ง่าย, เหมาะกับ Enterprise | ราคาแพงกว่า 4 เท่าเมื่อเทียบกับสเปคเดียวกัน |
 | **AWS** | EC2 t3.large | 2 / 8 GB | 100 GB EBS | **~2,500+ ฿** ($70+) | เสถียรภาพสูงสุด, ระบบ Ecosystem สมบูรณ์แบบ | ราคาแพงที่สุด, โดนคิดค่า Bandwidth (Egress) เพิ่ม |
 
-> **ทำไมถึงเลือก Hostinger?** 
-> แม้ Contabo จะถูกกว่า แต่สำหรับระบบ IoT ที่ต้องรับข้อมูลตลอดเวลา (Real-time) เรื่องความเสถียร (Uptime) และความเร็วของ Disk (NVMe vs SSD) สำคัญมาก Hostinger KVM 2 ให้ความสมดุลระหว่าง "ประสิทธิภาพ" และ "ราคา" ได้ดีที่สุด และมี Live Chat ที่ช่วยเหลือได้รวดเร็วกว่า
+> **ทำไมถึงเลือก Hostinger แทนผู้ให้บริการในไทย?** 
+> สำหรับผู้ให้บริการในไทยอย่าง Z.com หรือ Bangmod แม้จะได้เปรียบเรื่อง Ping ในประเทศต่ำมากและการมี Support คนไทยที่ออกใบกำกับภาษีได้ง่าย แต่ราคาเฉลี่ยยังถือว่าสูงกว่า Hostinger เกือบ 2-3 เท่า ในขณะที่ Contabo ก็มีจุดอ่อนเรื่องความเสถียร (Overselling) ดังนั้น สำหรับระบบ IoT ที่ต้องการคุมต้นทุนแต่ต้องการความเร็ว Disk ที่สูง Hostinger KVM 2 (เซิร์ฟเวอร์สิงคโปร์) จึงให้ความสมดุลระหว่าง "ประสิทธิภาพ" และ "ราคา" ได้ดีที่สุด (Ping จากไทยไปสิงคโปร์ต่างกันแค่เสี้ยววินาที แทบไม่มีผลกับ IoT ครับ)
 >
 > 💡 **หมายเหตุ: เซิร์ฟเวอร์เดียวรันหมดเลยได้ไหม? (All-in-One VPS)**
 > คำตอบคือ **"เอาอยู่สบายครับ"** บน Hostinger KVM VPS เครื่องเดียวนั้น เราสามารถติดตั้งและรันฐานข้อมูลทั้งหมด (InfluxDB + PostgreSQL + Redis) รวมถึงตัวรับข้อมูล (Telegraf + Mosquitto) และ Backend API กองรวมไว้ในเครื่องเดียวกันได้เลย (ผ่าน Docker) แพ็คเกจอย่าง KVM 2 หรือ KVM 4 มี RAM และ CPU เหลือเฟือที่จะรับมือบริการทั้งหมดนี้พร้อมกันสำหรับลูกค้า 1,000 เครื่องแรกได้อย่างชิลๆ ครับ นี่คือข้อดีสูงสุดของการทำ Self-hosted
@@ -1734,3 +1739,4 @@ Break_even = VPS_cost_monthly ÷ Pro_price_per_device
 
 > **จัดทำโดย:** PowerView R&D Team
 > **วัตถุประสงค์:** นำเสนอระบบ Billing & Tiers สำหรับแพลตฟอร์ม PowerView IoT
+> **Presentation:** https://docs.google.com/presentation/d/1qPCBL_l_G8ssDW5Z03KmNj-zIo3V1U2Zti6vchRaPmc/edit?usp=sharing
