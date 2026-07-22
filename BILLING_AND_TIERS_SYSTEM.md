@@ -1030,6 +1030,8 @@ erDiagram
         string display_name "ชื่อแสดงผล เช่น Pro Plan"
         int price_monthly_thb "ราคาต่อเดือน (สตางค์) เช่น 9900 = 99 บาท"
         int price_yearly_thb "ราคาต่อปี (สตางค์) ส่วนลด 20%"
+        string stripe_price_id_monthly "Price ID สำหรับรายเดือน (เช่น price_1XXX)"
+        string stripe_price_id_yearly "Price ID สำหรับรายปี (เช่น price_1YYY)"
         int raw_retention_days "จำนวนวันเก็บ raw data (1 วินาที)"
         int ds1m_retention_days "จำนวนวันเก็บ downsampled 1 นาที"
         int ds1h_retention_days "จำนวนวันเก็บ downsampled 1 ชั่วโมง"
@@ -1111,6 +1113,8 @@ sequenceDiagram
 | `display_name` | แยกออกจาก name เพราะ name ใช้ใน code (ภาษาอังกฤษ ห้ามเปลี่ยน) แต่ display_name แสดงผลให้ลูกค้า (เปลี่ยนได้) |
 | `price_monthly_thb` | เก็บเป็น **สตางค์ (integer)** ไม่ใช่ **บาท (float)** เพราะ float มีปัญหา rounding error ในการคำนวณเงิน เช่น 99.00 อาจกลายเป็น 98.9999 |
 | `price_yearly_thb` | แยกราคาปีออก ไม่คำนวณจาก monthly × 12 × 0.8 เพราะป้องกัน rounding error และให้ flexibility เปลี่ยนส่วนลดได้อิสระ |
+| `stripe_price_id_monthly` | รหัสสินค้าจาก Stripe (Price ID) สำหรับการจ่ายรายเดือน ใช้โยนให้ API ของ Stripe ตอนสร้างหน้าชำระเงิน |
+| `stripe_price_id_yearly` | รหัสสินค้าจาก Stripe (Price ID) สำหรับการจ่ายรายปี ใช้โยนให้ API ของ Stripe ตอนสร้างหน้าชำระเงิน |
 | `raw_retention_days` | กำหนดว่า tier นี้เก็บ raw data (1 วินาที) ได้กี่วัน → ใช้ใน Flux task เพื่อลบข้อมูลเก่า |
 | `ds1m_retention_days` | กำหนดว่า tier นี้เก็บ downsampled 1 นาที ได้กี่วัน |
 | `ds1h_retention_days` | กำหนดว่า tier นี้เก็บ downsampled 1 ชั่วโมง ได้กี่วัน |
